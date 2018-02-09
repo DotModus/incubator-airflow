@@ -26,11 +26,13 @@ from airflow import configuration, DAG
 from airflow.contrib.operators import mlengine_operator_utils
 from airflow.contrib.operators.mlengine_operator_utils import create_evaluate_ops
 from airflow.exceptions import AirflowException
+from airflow.version import version
 
 from mock import ANY
 from mock import patch
 
 DEFAULT_DATE = datetime.datetime(2017, 6, 6)
+TEST_VERSION = 'v{}'.format(version.replace('.', '-').replace('+', '-'))
 
 
 class CreateEvaluateOpsTest(unittest.TestCase):
@@ -110,11 +112,12 @@ class CreateEvaluateOpsTest(unittest.TestCase):
             hook_instance.start_python_dataflow.return_value = None
             summary.execute(None)
             mock_dataflow_hook.assert_called_with(
-                gcp_conn_id='google_cloud_default', delegate_to=None)
+                gcp_conn_id='google_cloud_default', delegate_to=None, poll_sleep=10)
             hook_instance.start_python_dataflow.assert_called_once_with(
                 'eval-test-summary',
                 {
                     'prediction_path': 'gs://legal-bucket/fake-output-path',
+                    'labels': {'airflow-version': TEST_VERSION},
                     'metric_keys': 'err',
                     'metric_fn_encoded': self.metric_fn_encoded,
                 },

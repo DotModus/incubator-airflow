@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
-
 from airflow.contrib.hooks.bigquery_hook import BigQueryHook
 from airflow.models import BaseOperator
 from airflow.utils.decorators import apply_defaults
@@ -21,11 +19,11 @@ from airflow.utils.decorators import apply_defaults
 
 class BigQueryToBigQueryOperator(BaseOperator):
     """
-    Copies data from one BigQuery table to another. See here:
+    Copies data from one BigQuery table to another.
 
-    https://cloud.google.com/bigquery/docs/reference/v2/jobs#configuration.copy
-
-    For more details about these parameters.
+    .. seealso::
+        For more details about these parameters:
+        https://cloud.google.com/bigquery/docs/reference/v2/jobs#configuration.copy
 
     :param source_project_dataset_tables: One or more
         dotted (project:|project.)<dataset>.<table> BigQuery tables to use as the
@@ -70,8 +68,10 @@ class BigQueryToBigQueryOperator(BaseOperator):
         self.delegate_to = delegate_to
 
     def execute(self, context):
-        logging.info('Executing copy of %s into: %s', self.source_project_dataset_tables,
-                     self.destination_project_dataset_table)
+        self.log.info(
+            'Executing copy of %s into: %s',
+            self.source_project_dataset_tables, self.destination_project_dataset_table
+        )
         hook = BigQueryHook(bigquery_conn_id=self.bigquery_conn_id,
                             delegate_to=self.delegate_to)
         conn = hook.get_conn()

@@ -15,7 +15,6 @@
 
 import json
 import time
-import logging
 from apiclient.discovery import build
 from airflow.contrib.hooks.gcp_api_base_hook import GoogleCloudBaseHook
 
@@ -67,7 +66,9 @@ class DatastoreHook(GoogleCloudBaseHook):
     def commit(self, body):
         """
         Commit a transaction, optionally creating, deleting or modifying some entities.
-        see https://cloud.google.com/datastore/docs/reference/rest/v1/projects/commit
+
+        .. seealso::
+            https://cloud.google.com/datastore/docs/reference/rest/v1/projects/commit
 
         :param body: the body of the commit request
         :return: the response body of the commit request
@@ -78,7 +79,10 @@ class DatastoreHook(GoogleCloudBaseHook):
     def lookup(self, keys, read_consistency=None, transaction=None):
         """
         Lookup some entities by key
-        see https://cloud.google.com/datastore/docs/reference/rest/v1/projects/lookup
+
+        .. seealso::
+            https://cloud.google.com/datastore/docs/reference/rest/v1/projects/lookup
+
         :param keys: the keys to lookup
         :param read_consistency: the read consistency to use. default, strong or eventual.
                 Cannot be used with a transaction.
@@ -95,7 +99,10 @@ class DatastoreHook(GoogleCloudBaseHook):
     def rollback(self, transaction):
         """
         Roll back a transaction
-        see https://cloud.google.com/datastore/docs/reference/rest/v1/projects/rollback
+
+        .. seealso::
+            https://cloud.google.com/datastore/docs/reference/rest/v1/projects/rollback
+
         :param transaction: the transaction to roll back
         """
         self.connection.projects().rollback(projectId=self.project_id, body={'transaction': transaction})\
@@ -104,7 +111,10 @@ class DatastoreHook(GoogleCloudBaseHook):
     def run_query(self, body):
         """
         Run a query for entities.
-        see https://cloud.google.com/datastore/docs/reference/rest/v1/projects/runQuery
+
+        .. seealso::
+            https://cloud.google.com/datastore/docs/reference/rest/v1/projects/runQuery
+
         :param body: the body of the query request
         :return: the batch of query results.
         """
@@ -137,8 +147,8 @@ class DatastoreHook(GoogleCloudBaseHook):
             result = self.get_operation(name)
             state = result['metadata']['common']['state']
             if state == 'PROCESSING':
-                logging.info('Operation is processing. Re-polling state in {} seconds'
-                        .format(polling_interval_in_seconds))
+                self.log.info('Operation is processing. Re-polling state in {} seconds'
+                              .format(polling_interval_in_seconds))
                 time.sleep(polling_interval_in_seconds)
             else:
                 return result

@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
-
 from airflow.contrib.hooks.bigquery_hook import BigQueryHook
 from airflow.models import BaseOperator
 from airflow.utils.decorators import apply_defaults
@@ -23,11 +21,9 @@ class BigQueryToCloudStorageOperator(BaseOperator):
     """
     Transfers a BigQuery table to a Google Cloud Storage bucket.
 
-    See here:
-
-    https://cloud.google.com/bigquery/docs/reference/v2/jobs
-
-    For more details about these parameters.
+    .. seealso::
+        For more details about these parameters:
+        https://cloud.google.com/bigquery/docs/reference/v2/jobs
 
     :param source_project_dataset_table: The dotted
         (<project>.|<project>:)<dataset>.<table> BigQuery table to use as the source
@@ -81,9 +77,9 @@ class BigQueryToCloudStorageOperator(BaseOperator):
         self.delegate_to = delegate_to
 
     def execute(self, context):
-        logging.info('Executing extract of %s into: %s',
-                     self.source_project_dataset_table,
-                     self.destination_cloud_storage_uris)
+        self.log.info('Executing extract of %s into: %s',
+                      self.source_project_dataset_table,
+                      self.destination_cloud_storage_uris)
         hook = BigQueryHook(bigquery_conn_id=self.bigquery_conn_id,
                             delegate_to=self.delegate_to)
         conn = hook.get_conn()
