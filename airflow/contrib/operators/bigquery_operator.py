@@ -77,6 +77,7 @@ class BigQueryOperator(BaseOperator):
                  schema_update_options=(),
                  query_params=None,
                  priority='INTERACTIVE',
+                 job_xcom_id=None,
                  *args,
                  **kwargs):
         super(BigQueryOperator, self).__init__(*args, **kwargs)
@@ -94,6 +95,7 @@ class BigQueryOperator(BaseOperator):
         self.query_params = query_params
         self.bq_cursor = None
         self.priority = priority
+        self.job_xcom_id = job_xcom_id
 
     def execute(self, context):
         if self.bq_cursor is None:
@@ -104,7 +106,7 @@ class BigQueryOperator(BaseOperator):
                 delegate_to=self.delegate_to)
             conn = hook.get_conn()
             self.bq_cursor = conn.cursor()
-        self.bq_cursor.run_query(
+        job_id = self.bq_cursor.run_query(
             self.bql,
             destination_dataset_table=self.destination_dataset_table,
             write_disposition=self.write_disposition,
@@ -115,6 +117,9 @@ class BigQueryOperator(BaseOperator):
             query_params=self.query_params,
             schema_update_options=self.schema_update_options,
             priority=self.priority)
+        
+        if self.job_xcom_id:
+            context['task_instance'].xcom_push(self.job_xcom_id, job_id)
 
     def on_kill(self):
         super(BigQueryOperator, self).on_kill()
