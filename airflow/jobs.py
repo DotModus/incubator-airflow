@@ -44,7 +44,7 @@ from airflow.exceptions import AirflowException
 from airflow.logging_config import configure_logging
 from airflow.models import DAG, DagRun
 from airflow.settings import Stats
-from airflow.tasks.task_runner import get_task_runner
+from airflow.task.task_runner import get_task_runner
 from airflow.ti_deps.dep_context import DepContext, QUEUE_DEPS, RUN_DEPS
 from airflow.utils import asciiart
 from airflow.utils.dag_processing import (AbstractDagFileProcessor,
