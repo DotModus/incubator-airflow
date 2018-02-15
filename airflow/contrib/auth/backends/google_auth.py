@@ -26,7 +26,6 @@ from flask import url_for, redirect, request
 from flask_oauthlib.client import OAuth
 
 from airflow import models, configuration, settings
-from airflow.utils.db import provide_session
 from airflow.utils.log.logging_mixin import LoggingMixin
 
 log = LoggingMixin().log
@@ -109,7 +108,6 @@ class GoogleAuthBackend(object):
         return self.google_oauth.authorize(callback=url_for(
             'google_oauth_callback',
             _external=True,
-            _scheme='https',
             next=request.args.get('next') or request.referrer or None))
 
     def get_google_user_profile_info(self, google_token):
@@ -125,22 +123,23 @@ class GoogleAuthBackend(object):
 
     def domain_check(self, email):
         domain = email.split('@')[1]
-        domains = get_config_param('domain').split(',')
-        if domain in domains:
+        if domain == get_config_param('domain'):
             return True
         return False
 
-    @provide_session
-    def load_user(self, userid, session=None):
+    def load_user(self, userid):
         if not userid or userid == 'None':
             return None
 
+        session = settings.Session()
         user = session.query(models.User).filter(
             models.User.id == int(userid)).first()
+        session.expunge_all()
+        session.commit()
+        session.close()
         return GoogleUser(user)
 
-    @provide_session
-    def oauth_callback(self, session=None):
+    def oauth_callback(self):
         log.debug('Google OAuth callback called')
 
         next_url = request.args.get('next') or url_for('admin.index')
@@ -163,6 +162,8 @@ class GoogleAuthBackend(object):
         except AuthenticationError:
             return redirect(url_for('airflow.noaccess'))
 
+        session = settings.Session()
+
         user = session.query(models.User).filter(
             models.User.username == username).first()
 
@@ -176,6 +177,7 @@ class GoogleAuthBackend(object):
         session.commit()
         login_user(GoogleUser(user))
         session.commit()
+        session.close()
 
         return redirect(next_url)
 
@@ -184,3 +186,4 @@ login_manager = GoogleAuthBackend()
 
 def login(self, request):
     return login_manager.login(request)
+

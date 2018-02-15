@@ -27,7 +27,6 @@ from flask_oauthlib.client import OAuth
 
 from airflow import models, configuration, settings
 from airflow.configuration import AirflowConfigException
-from airflow.utils.db import provide_session
 from airflow.utils.log.logging_mixin import LoggingMixin
 
 log = LoggingMixin().log
@@ -119,7 +118,7 @@ class GHEAuthBackend(object):
                                     self.oauth_callback)
 
     def login(self, request):
-        log.debug('Redirecting user to GHE login')
+        _log.debug('Redirecting user to GHE login')
         return self.ghe_oauth.authorize(callback=url_for(
             'ghe_oauth_callback',
             _external=True,
@@ -169,24 +168,26 @@ class GHEAuthBackend(object):
             if team['id'] in allowed_teams:
                 return True
 
-        log.debug('Denying access for user "%s", not a member of "%s"',
+        _log.debug('Denying access for user "%s", not a member of "%s"',
                    username,
                    str(allowed_teams))
 
         return False
 
-    @provide_session
-    def load_user(self, userid, session=None):
+    def load_user(self, userid):
         if not userid or userid == 'None':
             return None
 
+        session = settings.Session()
         user = session.query(models.User).filter(
             models.User.id == int(userid)).first()
+        session.expunge_all()
+        session.commit()
+        session.close()
         return GHEUser(user)
 
-    @provide_session
-    def oauth_callback(self, session=None):
-        log.debug('GHE OAuth callback called')
+    def oauth_callback(self):
+        _log.debug('GHE OAuth callback called')
 
         next_url = request.args.get('next') or url_for('admin.index')
 
@@ -206,8 +207,10 @@ class GHEAuthBackend(object):
                 return redirect(url_for('airflow.noaccess'))
 
         except AuthenticationError:
-            log.exception('')
+            _log.exception('')
             return redirect(url_for('airflow.noaccess'))
+
+        session = settings.Session()
 
         user = session.query(models.User).filter(
             models.User.username == username).first()
@@ -222,6 +225,7 @@ class GHEAuthBackend(object):
         session.commit()
         login_user(GHEUser(user))
         session.commit()
+        session.close()
 
         return redirect(next_url)
 

@@ -54,11 +54,10 @@ def configure_logging():
                 'Successfully imported user-defined logging config from %s',
                 logging_class_path
             )
-        except Exception as err:
+        except Exception:
             # Import default logging configurations.
             raise ImportError(
-                'Unable to load custom logging from {} due to {}'
-                .format(logging_class_path, err)
+                'Unable to load custom logging from {}'.format(logging_class_path)
             )
     else:
         from airflow.config_templates.airflow_local_settings import (

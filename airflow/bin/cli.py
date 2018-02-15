@@ -27,7 +27,7 @@ from importlib import import_module
 import argparse
 from builtins import input
 from collections import namedtuple
-from airflow.utils.timezone import parse as parsedate
+from dateutil.parser import parse as parsedate
 import json
 from tabulate import tabulate
 
@@ -324,63 +324,12 @@ def set_is_paused(is_paused, args, dag=None):
     print(msg)
 
 
-def _run(args, dag, ti):
-    if args.local:
-        run_job = jobs.LocalTaskJob(
-            task_instance=ti,
-            mark_success=args.mark_success,
-            pickle_id=args.pickle,
-            ignore_all_deps=args.ignore_all_dependencies,
-            ignore_depends_on_past=args.ignore_depends_on_past,
-            ignore_task_deps=args.ignore_dependencies,
-            ignore_ti_state=args.force,
-            pool=args.pool)
-        run_job.run()
-    elif args.raw:
-        ti._run_raw_task(
-            mark_success=args.mark_success,
-            job_id=args.job_id,
-            pool=args.pool,
-        )
-    else:
-        pickle_id = None
-        if args.ship_dag:
-            try:
-                # Running remotely, so pickling the DAG
-                session = settings.Session()
-                pickle = DagPickle(dag)
-                session.add(pickle)
-                session.commit()
-                pickle_id = pickle.id
-                # TODO: This should be written to a log
-                print('Pickled dag {dag} as pickle_id:{pickle_id}'
-                      .format(**locals()))
-            except Exception as e:
-                print('Could not pickle the DAG')
-                print(e)
-                raise e
-
-        executor = GetDefaultExecutor()
-        executor.start()
-        print("Sending to executor.")
-        executor.queue_task_instance(
-            ti,
-            mark_success=args.mark_success,
-            pickle_id=pickle_id,
-            ignore_all_deps=args.ignore_all_dependencies,
-            ignore_depends_on_past=args.ignore_depends_on_past,
-            ignore_task_deps=args.ignore_dependencies,
-            ignore_ti_state=args.force,
-            pool=args.pool)
-        executor.heartbeat()
-        executor.end()
-
-
 def run(args, dag=None):
     # Disable connection pooling to reduce the # of connections on the DB
     # while it's waiting for the task to finish.
     settings.configure_orm(disable_connection_pool=True)
 
+    db_utils.pessimistic_connection_handling()
     if dag:
         args.dag_id = dag.dag_id
 
@@ -415,18 +364,79 @@ def run(args, dag=None):
     ti = TaskInstance(task, args.execution_date)
     ti.refresh_from_db()
 
-    ti.init_run_context(raw=args.raw)
+    log = logging.getLogger('airflow.task')
+    if args.raw:
+        log = logging.getLogger('airflow.task.raw')
+
+    set_context(log, ti)
 
     hostname = socket.getfqdn()
-    log.info("Running %s on host %s", ti, hostname)
+    log.info("Running on host %s", hostname)
 
-    if args.interactive:
-        _run(args, dag, ti)
-    else:
-        with redirect_stdout(ti.log, logging.INFO),\
-                redirect_stderr(ti.log, logging.WARN):
-            _run(args, dag, ti)
-        logging.shutdown()
+    with redirect_stdout(log, logging.INFO), redirect_stderr(log, logging.WARN):
+        if args.local:
+            run_job = jobs.LocalTaskJob(
+                task_instance=ti,
+                mark_success=args.mark_success,
+                pickle_id=args.pickle,
+                ignore_all_deps=args.ignore_all_dependencies,
+                ignore_depends_on_past=args.ignore_depends_on_past,
+                ignore_task_deps=args.ignore_dependencies,
+                ignore_ti_state=args.force,
+                pool=args.pool)
+            run_job.run()
+        elif args.raw:
+            ti._run_raw_task(
+                mark_success=args.mark_success,
+                job_id=args.job_id,
+                pool=args.pool,
+            )
+        else:
+            pickle_id = None
+            if args.ship_dag:
+                try:
+                    # Running remotely, so pickling the DAG
+                    session = settings.Session()
+                    pickle = DagPickle(dag)
+                    session.add(pickle)
+                    session.commit()
+                    pickle_id = pickle.id
+                    # TODO: This should be written to a log
+                    print((
+                              'Pickled dag {dag} '
+                              'as pickle_id:{pickle_id}').format(**locals()))
+                except Exception as e:
+                    print('Could not pickle the DAG')
+                    print(e)
+                    raise e
+
+            executor = GetDefaultExecutor()
+            executor.start()
+            print("Sending to executor.")
+            executor.queue_task_instance(
+                ti,
+                mark_success=args.mark_success,
+                pickle_id=pickle_id,
+                ignore_all_deps=args.ignore_all_dependencies,
+                ignore_depends_on_past=args.ignore_depends_on_past,
+                ignore_task_deps=args.ignore_dependencies,
+                ignore_ti_state=args.force,
+                pool=args.pool)
+            executor.heartbeat()
+            executor.end()
+
+    # Child processes should not flush or upload to remote
+    if args.raw:
+        return
+
+    # Force the log to flush. The flush is important because we
+    # might subsequently read from the log to insert into S3 or
+    # Google cloud storage. Explicitly close the handler is
+    # needed in order to upload to remote storage services.
+    for handler in log.handlers:
+        handler.flush()
+        handler.close()
+
 
 def task_failed_deps(args):
     """
@@ -555,22 +565,6 @@ def clear(args):
         include_subdags=not args.exclude_subdags)
 
 
-def get_num_ready_workers_running(gunicorn_master_proc):
-    workers = psutil.Process(gunicorn_master_proc.pid).children()
-
-    def ready_prefix_on_cmdline(proc):
-        try:
-            cmdline = proc.cmdline()
-            if len(cmdline) > 0:
-                return settings.GUNICORN_WORKER_READY_PREFIX in cmdline[0]
-        except psutil.NoSuchProcess:
-            pass
-        return False
-
-    ready_workers = [proc for proc in workers if ready_prefix_on_cmdline(proc)]
-    return len(ready_workers)
-
-
 def restart_workers(gunicorn_master_proc, num_workers_expected):
     """
     Runs forever, monitoring the child processes of @gunicorn_master_proc and
@@ -607,6 +601,14 @@ def restart_workers(gunicorn_master_proc, num_workers_expected):
     def get_num_workers_running(gunicorn_master_proc):
         workers = psutil.Process(gunicorn_master_proc.pid).children()
         return len(workers)
+
+    def get_num_ready_workers_running(gunicorn_master_proc):
+        workers = psutil.Process(gunicorn_master_proc.pid).children()
+        ready_workers = [
+            proc for proc in workers
+            if settings.GUNICORN_WORKER_READY_PREFIX in proc.cmdline()[0]
+        ]
+        return len(ready_workers)
 
     def start_refresh(gunicorn_master_proc):
         batch_size = conf.getint('webserver', 'worker_refresh_batch_size')
@@ -764,7 +766,7 @@ def webserver(args):
                 },
             )
             with ctx:
-                subprocess.Popen(run_args, close_fds=True)
+                subprocess.Popen(run_args)
 
                 # Reading pid file directly, since Popen#pid doesn't
                 # seem to return the right value with DaemonContext.
@@ -783,7 +785,7 @@ def webserver(args):
             stdout.close()
             stderr.close()
         else:
-            gunicorn_master_proc = subprocess.Popen(run_args, close_fds=True)
+            gunicorn_master_proc = subprocess.Popen(run_args)
 
             signal.signal(signal.SIGINT, kill_proc)
             signal.signal(signal.SIGTERM, kill_proc)
@@ -874,7 +876,7 @@ def worker(args):
             stderr=stderr,
         )
         with ctx:
-            sp = subprocess.Popen(['airflow', 'serve_logs'], env=env, close_fds=True)
+            sp = subprocess.Popen(['airflow', 'serve_logs'], env=env)
             worker.run(**options)
             sp.kill()
 
@@ -884,7 +886,7 @@ def worker(args):
         signal.signal(signal.SIGINT, sigint_handler)
         signal.signal(signal.SIGTERM, sigint_handler)
 
-        sp = subprocess.Popen(['airflow', 'serve_logs'], env=env, close_fds=True)
+        sp = subprocess.Popen(['airflow', 'serve_logs'], env=env)
 
         worker.run(**options)
         sp.kill()
@@ -1059,10 +1061,6 @@ def flower(args):
     if args.broker_api:
         api = '--broker_api=' + args.broker_api
 
-    url_prefix = ''
-    if args.url_prefix:
-        url_prefix = '--url-prefix=' + args.url_prefix
-
     flower_conf = ''
     if args.flower_conf:
         flower_conf = '--conf=' + args.flower_conf
@@ -1079,8 +1077,7 @@ def flower(args):
         )
 
         with ctx:
-            os.execvp("flower", ['flower', '-b',
-                                 broka, address, port, api, flower_conf, url_prefix])
+            os.execvp("flower", ['flower', '-b', broka, address, port, api, flower_conf])
 
         stdout.close()
         stderr.close()
@@ -1088,8 +1085,7 @@ def flower(args):
         signal.signal(signal.SIGINT, sigint_handler)
         signal.signal(signal.SIGTERM, sigint_handler)
 
-        os.execvp("flower", ['flower', '-b',
-                             broka, address, port, api, flower_conf, url_prefix])
+        os.execvp("flower", ['flower', '-b', broka, address, port, api, flower_conf])
 
 
 def kerberos(args):  # noqa
@@ -1286,11 +1282,6 @@ class CLIFactory(object):
         # dependency. This flag should be deprecated and renamed to 'ignore_ti_state' and
         # the "ignore_all_dependencies" command should be called the"force" command
         # instead.
-        'interactive': Arg(
-            ('-int', '--interactive'),
-            help='Do not capture standard output and error streams '
-                 '(useful for interactive debugging)',
-            action='store_true'),
         'force': Arg(
             ("-f", "--force"),
             "Ignore previous task instance state, rerun regardless if task already "
@@ -1407,7 +1398,7 @@ class CLIFactory(object):
             ("-c", "--concurrency"),
             type=int,
             help="The number of worker processes",
-            default=conf.get('celery', 'worker_concurrency')),
+            default=conf.get('celery', 'celeryd_concurrency')),
         'celery_hostname': Arg(
             ("-cn", "--celery_hostname"),
             help=("Set the hostname of celery worker "
@@ -1426,10 +1417,6 @@ class CLIFactory(object):
         'flower_conf': Arg(
             ("-fc", "--flower_conf"),
             help="Configuration file for flower"),
-        'flower_url_prefix': Arg(
-            ("-u", "--url_prefix"),
-            default=conf.get('celery', 'FLOWER_URL_PREFIX'),
-            help="URL prefix for Flower"),
         'task_params': Arg(
             ("-tp", "--task_params"),
             help="Sends a JSON params dict to the task"),
@@ -1539,7 +1526,7 @@ class CLIFactory(object):
                 'dag_id', 'task_id', 'execution_date', 'subdir',
                 'mark_success', 'force', 'pool', 'cfg_path',
                 'local', 'raw', 'ignore_all_dependencies', 'ignore_dependencies',
-                'ignore_depends_on_past', 'ship_dag', 'pickle', 'job_id', 'interactive',),
+                'ignore_depends_on_past', 'ship_dag', 'pickle', 'job_id'),
         }, {
             'func': initdb,
             'help': "Initialize the metadata database",
@@ -1604,8 +1591,8 @@ class CLIFactory(object):
         }, {
             'func': flower,
             'help': "Start a Celery Flower",
-            'args': ('flower_hostname', 'flower_port', 'flower_conf', 'flower_url_prefix',
-                     'broker_api', 'pid', 'daemon', 'stdout', 'stderr', 'log_file'),
+            'args': ('flower_hostname', 'flower_port', 'flower_conf', 'broker_api',
+                     'pid', 'daemon', 'stdout', 'stderr', 'log_file'),
         }, {
             'func': version,
             'help': "Show the version",

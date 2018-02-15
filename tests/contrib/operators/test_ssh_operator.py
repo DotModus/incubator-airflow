@@ -14,14 +14,13 @@
 
 import unittest
 from base64 import b64encode
+from datetime import datetime
 
 from airflow import configuration
 from airflow import models
 from airflow.contrib.operators.ssh_operator import SSHOperator
 from airflow.models import DAG, TaskInstance
 from airflow.settings import Session
-from airflow.utils import timezone
-from airflow.utils.timezone import datetime
 
 TEST_DAG_ID = 'unit_tests'
 DEFAULT_DATE = datetime(2017, 1, 1)
@@ -66,7 +65,7 @@ class SSHOperatorTest(unittest.TestCase):
         self.assertIsNotNone(task)
 
         ti = TaskInstance(
-                task=task, execution_date=timezone.utcnow())
+                task=task, execution_date=datetime.now())
         ti.run()
         self.assertIsNotNone(ti.duration)
         self.assertEqual(ti.xcom_pull(task_ids='test', key='return_value'),
@@ -85,7 +84,7 @@ class SSHOperatorTest(unittest.TestCase):
         self.assertIsNotNone(task)
 
         ti = TaskInstance(
-                task=task, execution_date=timezone.utcnow())
+                task=task, execution_date=datetime.now())
         ti.run()
         self.assertIsNotNone(ti.duration)
         self.assertEqual(ti.xcom_pull(task_ids='test', key='return_value'), b'airflow')
@@ -103,7 +102,7 @@ class SSHOperatorTest(unittest.TestCase):
         self.assertIsNotNone(task)
 
         ti = TaskInstance(
-            task=task, execution_date=timezone.utcnow())
+            task=task, execution_date=datetime.now())
         ti.run()
         self.assertIsNotNone(ti.duration)
         self.assertEqual(ti.xcom_pull(task_ids='test', key='return_value'), b'airflow')
@@ -121,11 +120,10 @@ class SSHOperatorTest(unittest.TestCase):
         self.assertIsNotNone(task)
 
         ti = TaskInstance(
-            task=task, execution_date=timezone.utcnow())
+            task=task, execution_date=datetime.now())
         ti.run()
         self.assertIsNotNone(ti.duration)
         self.assertEqual(ti.xcom_pull(task_ids='test', key='return_value'), b'')
-
 
 if __name__ == '__main__':
     unittest.main()
