@@ -22,13 +22,12 @@ from airflow.utils.log.logging_mixin import LoggingMixin
 
 
 class _DataProcJob(LoggingMixin):
-    def __init__(self, dataproc_api, project_id, job, region='global'):
+    def __init__(self, dataproc_api, project_id, job):
         self.dataproc_api = dataproc_api
         self.project_id = project_id
-        self.region = region
         self.job = dataproc_api.projects().regions().jobs().submit(
             projectId=self.project_id,
-            region=self.region,
+            region='global',
             body=job).execute()
         self.job_id = self.job['reference']['jobId']
         self.log.info(
@@ -40,8 +39,8 @@ class _DataProcJob(LoggingMixin):
         while True:
             self.job = self.dataproc_api.projects().regions().jobs().get(
                 projectId=self.project_id,
-                region=self.region,
-                jobId=self.job_id).execute(num_retries=5)
+                region='global',
+                jobId=self.job_id).execute()
             if 'ERROR' == self.job['status']['state']:
                 print(str(self.job))
                 self.log.error('DataProc job %s has errors', self.job_id)
@@ -141,76 +140,24 @@ class _DataProcJobBuilder:
         return self.job
 
 
-class _DataProcOperation(LoggingMixin):
-    """Continuously polls Dataproc Operation until it completes."""
-    def __init__(self, dataproc_api, operation):
-        self.dataproc_api = dataproc_api
-        self.operation = operation
-        self.operation_name = self.operation['name']
-
-    def wait_for_done(self):
-        if self._check_done():
-            return True
-
-        self.log.info(
-            'Waiting for Dataproc Operation %s to finish', self.operation_name)
-        while True:
-            time.sleep(10)
-            self.operation = (
-                self.dataproc_api.projects()
-                .regions()
-                .operations()
-                .get(name=self.operation_name)
-                .execute(num_retries=5))
-
-            if self._check_done():
-                return True
-
-    def get(self):
-        return self.operation
-
-    def _check_done(self):
-        if 'done' in self.operation:
-            if 'error' in self.operation:
-                self.log.warning(
-                    'Dataproc Operation %s failed with error: %s',
-                    self.operation_name, self.operation['error']['message'])
-                self._raise_error()
-            else:
-                self.log.info(
-                    'Dataproc Operation %s done', self.operation['name'])
-                return True
-        return False
-
-    def _raise_error(self):
-        raise Exception('Google Dataproc Operation %s failed: %s' %
-                        (self.operation_name, self.operation['error']['message']))
-
-
 class DataProcHook(GoogleCloudBaseHook):
-    """Hook for Google Cloud Dataproc APIs."""
     def __init__(self,
                  gcp_conn_id='google_cloud_default',
-                 delegate_to=None,
-                 api_version='v1'):
+                 delegate_to=None):
         super(DataProcHook, self).__init__(gcp_conn_id, delegate_to)
-        self.api_version = api_version
 
     def get_conn(self):
-        """Returns a Google Cloud Dataproc service object."""
+        """
+        Returns a Google Cloud DataProc service object.
+        """
         http_authorized = self._authorize()
-        return build('dataproc', self.api_version, http=http_authorized)
+        return build('dataproc', 'v1', http=http_authorized)
 
-    def submit(self, project_id, job, region='global'):
-        submitted = _DataProcJob(self.get_conn(), project_id, job, region)
+    def submit(self, project_id, job):
+        submitted = _DataProcJob(self.get_conn(), project_id, job)
         if not submitted.wait_for_done():
-            submitted.raise_error('DataProcTask has errors')
+            submitted.raise_error("DataProcTask has errors")
 
     def create_job_template(self, task_id, cluster_name, job_type, properties):
-        return _DataProcJobBuilder(self.project_id, task_id, cluster_name,
-                                   job_type, properties)
-
-    def await(self, operation):
-        """Awaits for Google Cloud Dataproc Operation to complete."""
-        submitted = _DataProcOperation(self.get_conn(), operation)
-        submitted.wait_for_done()
+        return _DataProcJobBuilder(self.project_id, task_id, cluster_name, job_type,
+                                   properties)

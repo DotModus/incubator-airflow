@@ -14,7 +14,6 @@
 
 from airflow.contrib.hooks.aws_hook import AwsHook
 
-
 class RedshiftHook(AwsHook):
     """
     Interact with AWS Redshift, using the boto3 library
@@ -27,36 +26,29 @@ class RedshiftHook(AwsHook):
         """
         Return status of a cluster
 
-        :param cluster_identifier: unique identifier of a cluster
+        :param cluster_identifier: unique identifier of a cluster whose properties you are requesting
         :type cluster_identifier: str
         """
-        conn = self.get_conn()
-        try:
-            response = conn.describe_clusters(
-                ClusterIdentifier=cluster_identifier)['Clusters']
-            return response[0]['ClusterStatus'] if response else None
-        except conn.exceptions.ClusterNotFoundFault:
-            return 'cluster_not_found'
+        # Use describe clusters
+        response = self.get_conn().describe_clusters(ClusterIdentifier=cluster_identifier)
+        # Possibly return error if cluster does not exist
+        return response['Clusters'][0]['ClusterStatus'] if response['Clusters'] else None
 
-    def delete_cluster(
-            self,
-            cluster_identifier,
-            skip_final_cluster_snapshot=True,
-            final_cluster_snapshot_identifier=''):
+    def delete_cluster(self, cluster_identifier, skip_final_cluster_snapshot=True, final_cluster_snapshot_identifier=''):
         """
         Delete a cluster and optionally create a snapshot
 
-        :param cluster_identifier: unique identifier of a cluster
+        :param cluster_identifier: unique identifier of a cluster whose properties you are requesting
         :type cluster_identifier: str
-        :param skip_final_cluster_snapshot: determines cluster snapshot creation
+        :param skip_final_cluster_snapshot: determines if a final cluster snapshot is made before shut-down
         :type skip_final_cluster_snapshot: bool
         :param final_cluster_snapshot_identifier: name of final cluster snapshot
         :type final_cluster_snapshot_identifier: str
         """
         response = self.get_conn().delete_cluster(
-            ClusterIdentifier=cluster_identifier,
-            SkipFinalClusterSnapshot=skip_final_cluster_snapshot,
-            FinalClusterSnapshotIdentifier=final_cluster_snapshot_identifier
+            ClusterIdentifier = cluster_identifier,
+            SkipFinalClusterSnapshot = skip_final_cluster_snapshot,
+            FinalClusterSnapshotIdentifier = final_cluster_snapshot_identifier
         )
         return response['Cluster'] if response['Cluster'] else None
 
@@ -64,11 +56,11 @@ class RedshiftHook(AwsHook):
         """
         Gets a list of snapshots for a cluster
 
-        :param cluster_identifier: unique identifier of a cluster
+        :param cluster_identifier: unique identifier of a cluster whose properties you are requesting
         :type cluster_identifier: str
         """
         response = self.get_conn().describe_cluster_snapshots(
-            ClusterIdentifier=cluster_identifier
+            ClusterIdentifier = cluster_identifier
         )
         if 'Snapshots' not in response:
             return None
@@ -81,14 +73,14 @@ class RedshiftHook(AwsHook):
         """
         Restores a cluster from it's snapshot
 
-        :param cluster_identifier: unique identifier of a cluster
+        :param cluster_identifier: unique identifier of a cluster whose properties you are requesting
         :type cluster_identifier: str
         :param snapshot_identifier: unique identifier for a snapshot of a cluster
         :type snapshot_identifier: str
         """
         response = self.get_conn().restore_from_cluster_snapshot(
-            ClusterIdentifier=cluster_identifier,
-            SnapshotIdentifier=snapshot_identifier
+            ClusterIdentifier = cluster_identifier,
+            SnapshotIdentifier = snapshot_identifier
         )
         return response['Cluster'] if response['Cluster'] else None
 
@@ -98,7 +90,7 @@ class RedshiftHook(AwsHook):
 
         :param snapshot_identifier: unique identifier for a snapshot of a cluster
         :type snapshot_identifier: str
-        :param cluster_identifier: unique identifier of a cluster
+        :param cluster_identifier: unique identifier of a cluster whose properties you are requesting
         :type cluster_identifier: str
         """
         response = self.get_conn().create_cluster_snapshot(

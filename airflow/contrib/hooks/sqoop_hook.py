@@ -21,7 +21,6 @@ import subprocess
 from airflow.exceptions import AirflowException
 from airflow.hooks.base_hook import BaseHook
 from airflow.utils.log.logging_mixin import LoggingMixin
-from copy import deepcopy
 
 
 class SqoopHook(BaseHook, LoggingMixin):
@@ -71,8 +70,7 @@ class SqoopHook(BaseHook, LoggingMixin):
     def get_conn(self):
         return self.conn
 
-    def cmd_mask_password(self, cmd_orig):
-        cmd = deepcopy(cmd_orig)
+    def cmd_mask_password(self, cmd):
         try:
             password_index = cmd.index('--password')
             cmd[password_index + 1] = 'MASKED'
@@ -88,22 +86,21 @@ class SqoopHook(BaseHook, LoggingMixin):
         :param kwargs: extra arguments to Popen (see subprocess.Popen)
         :return: handle to subprocess
         """
-        masked_cmd = ' '.join(self.cmd_mask_password(cmd))
-        self.log.info("Executing command: {}".format(masked_cmd))
-        self.sp = subprocess.Popen(cmd,
+        self.log.info("Executing command: {}".format(' '.join(self.cmd_mask_password(cmd))))
+        sp = subprocess.Popen(cmd,
                               stdout=subprocess.PIPE,
                               stderr=subprocess.STDOUT,
                               **kwargs)
 
-        for line in iter(self.sp.stdout):
+        for line in iter(sp.stdout):
             self.log.info(line.strip())
 
-        self.sp.wait()
+        sp.wait()
 
-        self.log.info("Command exited with return code %s", self.sp.returncode)
+        self.log.info("Command exited with return code %s", sp.returncode)
 
-        if self.sp.returncode:
-            raise AirflowException("Sqoop command failed: {}".format(masked_cmd))
+        if sp.returncode:
+            raise AirflowException("Sqoop command failed: {}".format(' '.join(self.cmd_mask_password(cmd))))
 
     def _prepare_command(self, export=False):
         sqoop_cmd_type = "export" if export else "import"

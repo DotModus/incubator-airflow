@@ -33,9 +33,9 @@ def _parse_s3_config(config_file_name, config_format='boto', profile=None):
     :param profile: profile name in AWS type config file
     :type profile: str
     """
-    config = configparser.ConfigParser()
-    if config.read(config_file_name):  # pragma: no cover
-        sections = config.sections()
+    Config = configparser.ConfigParser()
+    if Config.read(config_file_name):  # pragma: no cover
+        sections = Config.sections()
     else:
         raise AirflowException("Couldn't read {0}".format(config_file_name))
     # Setting option names depending on file format
@@ -64,12 +64,12 @@ def _parse_s3_config(config_file_name, config_format='boto', profile=None):
         raise AirflowException("This config file format is not recognized")
     else:
         try:
-            access_key = config.get(cred_section, key_id_option)
-            secret_key = config.get(cred_section, secret_key_option)
+            access_key = Config.get(cred_section, key_id_option)
+            secret_key = Config.get(cred_section, secret_key_option)
         except:
             logging.warning("Option Error in parsing s3 config file")
             raise
-        return access_key, secret_key
+        return (access_key, secret_key)
 
 
 class AwsHook(BaseHook):
@@ -84,8 +84,7 @@ class AwsHook(BaseHook):
     def _get_credentials(self, region_name):
         aws_access_key_id = None
         aws_secret_access_key = None
-        aws_session_token = None
-        endpoint_url = None
+        s3_endpoint_url = None
 
         if self.aws_conn_id:
             try:
@@ -106,48 +105,35 @@ class AwsHook(BaseHook):
                 if region_name is None:
                     region_name = connection_object.extra_dejson.get('region_name')
 
-                role_arn = connection_object.extra_dejson.get('role_arn')
-                aws_account_id = connection_object.extra_dejson.get('aws_account_id')
-                aws_iam_role = connection_object.extra_dejson.get('aws_iam_role')
-
-                if role_arn is None and aws_account_id is not None and \
-                        aws_iam_role is not None:
-
-                    role_arn = "arn:aws:iam::" + aws_account_id + ":role/" + aws_iam_role
-
-                if role_arn is not None:
-                    sts_session = boto3.session.Session(
-                        aws_access_key_id=aws_access_key_id,
-                        aws_secret_access_key=aws_secret_access_key,
-                        region_name=region_name)
-
-                    sts_client = sts_session.client('sts')
-                    sts_response = sts_client.assume_role(
-                        RoleArn=role_arn,
-                        RoleSessionName='Airflow_' + self.aws_conn_id)
-                    aws_access_key_id = sts_response['Credentials']['AccessKeyId']
-                    aws_secret_access_key = sts_response['Credentials']['SecretAccessKey']
-                    aws_session_token = sts_response['Credentials']['SessionToken']
-
-                endpoint_url = connection_object.extra_dejson.get('host')
+                s3_endpoint_url = connection_object.extra_dejson.get('host')
 
             except AirflowException:
                 # No connection found: fallback on boto3 credential strategy
                 # http://boto3.readthedocs.io/en/latest/guide/configuration.html
                 pass
 
-        return boto3.session.Session(
-            aws_access_key_id=aws_access_key_id,
-            aws_secret_access_key=aws_secret_access_key,
-            aws_session_token=aws_session_token,
-            region_name=region_name), endpoint_url
+        return aws_access_key_id, aws_secret_access_key, region_name, s3_endpoint_url
 
     def get_client_type(self, client_type, region_name=None):
-        session, endpoint_url = self._get_credentials(region_name)
+        aws_access_key_id, aws_secret_access_key, region_name, endpoint_url = \
+            self._get_credentials(region_name)
 
-        return session.client(client_type, endpoint_url=endpoint_url)
+        return boto3.client(
+            client_type,
+            region_name=region_name,
+            aws_access_key_id=aws_access_key_id,
+            aws_secret_access_key=aws_secret_access_key,
+            endpoint_url=endpoint_url
+        )
 
     def get_resource_type(self, resource_type, region_name=None):
-        session, endpoint_url = self._get_credentials(region_name)
+        aws_access_key_id, aws_secret_access_key, region_name, endpoint_url = \
+            self._get_credentials(region_name)
 
-        return session.resource(resource_type, endpoint_url=endpoint_url)
+        return boto3.resource(
+            resource_type,
+            region_name=region_name,
+            aws_access_key_id=aws_access_key_id,
+            aws_secret_access_key=aws_secret_access_key,
+            endpoint_url=endpoint_url
+        )

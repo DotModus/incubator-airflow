@@ -46,20 +46,16 @@ class BigQueryOperator(BaseOperator):
     :type udf_config: list
     :param use_legacy_sql: Whether to use legacy SQL (true) or standard SQL (false).
     :type use_legacy_sql: boolean
-    :param maximum_billing_tier: Positive integer that serves as a multiplier
-        of the basic price.
+    :param maximum_billing_tier: Positive integer that serves as a multiplier of the basic price.
         Defaults to None, in which case it uses the value set in the project.
     :type maximum_billing_tier: integer
-    :param schema_update_options: Allows the schema of the desitination
-        table to be updated as a side effect of the load job.
-    :type schema_update_options: tuple
-    :param query_params: a dictionary containing query parameter types and
-        values, passed to BigQuery.
+    :param query_params: a dictionary containing query parameter types and values, passed to
+        BigQuery.
     :type query_params: dict
 
     """
     template_fields = ('bql', 'destination_dataset_table')
-    template_ext = ('.sql', )
+    template_ext = ('.sql',)
     ui_color = '#e4f0e8'
 
     @apply_defaults
@@ -74,9 +70,7 @@ class BigQueryOperator(BaseOperator):
                  use_legacy_sql=True,
                  maximum_billing_tier=None,
                  create_disposition='CREATE_IF_NEEDED',
-                 schema_update_options=(),
                  query_params=None,
-                 priority='INTERACTIVE',
                  job_xcom_id=None,
                  *args,
                  **kwargs):
@@ -91,38 +85,19 @@ class BigQueryOperator(BaseOperator):
         self.udf_config = udf_config
         self.use_legacy_sql = use_legacy_sql
         self.maximum_billing_tier = maximum_billing_tier
-        self.schema_update_options = schema_update_options
         self.query_params = query_params
-        self.bq_cursor = None
-        self.priority = priority
         self.job_xcom_id = job_xcom_id
 
     def execute(self, context):
-        if self.bq_cursor is None:
-            self.log.info('Executing: %s', self.bql)
-            hook = BigQueryHook(
-                bigquery_conn_id=self.bigquery_conn_id,
-                use_legacy_sql=self.use_legacy_sql,
-                delegate_to=self.delegate_to)
-            conn = hook.get_conn()
-            self.bq_cursor = conn.cursor()
-        job_id = self.bq_cursor.run_query(
-            self.bql,
-            destination_dataset_table=self.destination_dataset_table,
-            write_disposition=self.write_disposition,
-            allow_large_results=self.allow_large_results,
-            udf_config=self.udf_config,
-            maximum_billing_tier=self.maximum_billing_tier,
-            create_disposition=self.create_disposition,
-            query_params=self.query_params,
-            schema_update_options=self.schema_update_options,
-            priority=self.priority)
-        
+        self.log.info('Executing: %s', self.bql)
+        hook = BigQueryHook(bigquery_conn_id=self.bigquery_conn_id,
+                            delegate_to=self.delegate_to)
+        conn = hook.get_conn()
+        cursor = conn.cursor()
+        job_id = cursor.run_query(self.bql, self.destination_dataset_table, self.write_disposition,
+                         self.allow_large_results, self.udf_config,
+                         self.use_legacy_sql, self.maximum_billing_tier,
+                         self.create_disposition, self.query_params)
+
         if self.job_xcom_id:
             context['task_instance'].xcom_push(self.job_xcom_id, job_id)
-
-    def on_kill(self):
-        super(BigQueryOperator, self).on_kill()
-        if self.bq_cursor is not None:
-            self.log.info('Canceling running query due to execution timeout')
-            self.bq_cursor.cancel_query()

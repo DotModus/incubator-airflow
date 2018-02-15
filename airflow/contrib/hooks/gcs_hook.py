@@ -38,6 +38,7 @@ class GoogleCloudStorageHook(GoogleCloudBaseHook):
         http_authorized = self._authorize()
         return build('storage', 'v1', http=http_authorized)
 
+
     # pylint:disable=redefined-builtin
     def copy(self, source_bucket, source_object, destination_bucket=None,
              destination_object=None):
@@ -47,10 +48,10 @@ class GoogleCloudStorageHook(GoogleCloudBaseHook):
         destination_bucket or destination_object can be omitted, in which case
         source bucket/object is used, but not both.
 
-        :param source_bucket: The bucket of the object to copy from.
-        :type source_bucket: string
-        :param source_object: The object to copy.
-        :type source_object: string
+        :param bucket: The bucket of the object to copy from.
+        :type bucket: string
+        :param object: The object to copy.
+        :type object: string
         :param destination_bucket: The destination of the object to copied to.
             Can be omitted; then the same bucket is used.
         :type destination_bucket: string
@@ -84,7 +85,7 @@ class GoogleCloudStorageHook(GoogleCloudBaseHook):
 
 
     # pylint:disable=redefined-builtin
-    def download(self, bucket, object, filename=None):
+    def download(self, bucket, object, filename=False):
         """
         Get a file from Google Cloud Storage.
 
@@ -218,7 +219,7 @@ class GoogleCloudStorageHook(GoogleCloudBaseHook):
                 return False
             raise
 
-    def list(self, bucket, versions=None, maxResults=None, prefix=None, delimiter=None):
+    def list(self, bucket, versions=None, maxResults=None, prefix=None):
         """
         List all objects from the bucket with the give string prefix in name
 
@@ -230,8 +231,6 @@ class GoogleCloudStorageHook(GoogleCloudBaseHook):
         :type maxResults: integer
         :param prefix: prefix string which filters objects whose name begin with this prefix
         :type prefix: string
-        :param delimiter: filters objects based on the delimiter (for e.g '.csv')
-        :type delimiter: string
         :return: a stream of object names matching the filtering criteria
         """
         service = self.get_conn()
@@ -244,21 +243,16 @@ class GoogleCloudStorageHook(GoogleCloudBaseHook):
                 versions=versions,
                 maxResults=maxResults,
                 pageToken=pageToken,
-                prefix=prefix,
-                delimiter=delimiter
+                prefix=prefix
             ).execute()
 
-            if 'prefixes' not in response:
-                if 'items' not in response:
-                    self.log.info("No items found for prefix: %s", prefix)
-                    break
+            if 'items' not in response:
+                self.log.info("No items found for prefix: %s", prefix)
+                break
 
-                for item in response['items']:
-                    if item and 'name' in item:
-                        ids.append(item['name'])
-            else:
-                for item in response['prefixes']:
-                    ids.append(item)
+            for item in response['items']:
+                if item and 'name' in item:
+                    ids.append(item['name'])
 
             if 'nextPageToken' not in response:
                 # no further pages of results, so stop the loop
@@ -269,86 +263,3 @@ class GoogleCloudStorageHook(GoogleCloudBaseHook):
                 # empty next page token
                 break
         return ids
-
-    def get_size(self, bucket, object):
-        """
-        Gets the size of a file in Google Cloud Storage.
-
-        :param bucket: The Google cloud storage bucket where the object is.
-        :type bucket: string
-        :param object: The name of the object to check in the Google cloud storage bucket.
-        :type object: string
-
-        """
-        self.log.info('Checking the file size of object: %s in bucket: %s', object, bucket)
-        service = self.get_conn()
-        try:
-            response = service.objects().get(
-                bucket=bucket,
-                object=object
-            ).execute()
-
-            if 'name' in response and response['name'][-1] != '/':
-                # Remove Directories & Just check size of files
-                size = response['size']
-                self.log.info('The file size of %s is %s bytes.', object, size)
-                return size
-            else:
-                raise ValueError('Object is not a file')
-        except errors.HttpError as ex:
-            if ex.resp['status'] == '404':
-                raise ValueError('Object Not Found')
-
-    def get_crc32c(self, bucket, object):
-        """
-        Gets the CRC32c checksum of an object in Google Cloud Storage.
-
-        :param bucket: The Google cloud storage bucket where the object is.
-        :type bucket: string
-        :param object: The name of the object to check in the Google cloud
-            storage bucket.
-        :type object: string
-        """
-        self.log.info('Retrieving the crc32c checksum of '
-                      'object: %s in bucket: %s', object, bucket)
-        service = self.get_conn()
-        try:
-            response = service.objects().get(
-                bucket=bucket,
-                object=object
-            ).execute()
-
-            crc32c = response['crc32c']
-            self.log.info('The crc32c checksum of %s is %s', object, crc32c)
-            return crc32c
-
-        except errors.HttpError as ex:
-            if ex.resp['status'] == '404':
-                raise ValueError('Object Not Found')
-
-    def get_md5hash(self, bucket, object):
-        """
-        Gets the MD5 hash of an object in Google Cloud Storage.
-
-        :param bucket: The Google cloud storage bucket where the object is.
-        :type bucket: string
-        :param object: The name of the object to check in the Google cloud
-            storage bucket.
-        :type object: string
-        """
-        self.log.info('Retrieving the MD5 hash of '
-                      'object: %s in bucket: %s', object, bucket)
-        service = self.get_conn()
-        try:
-            response = service.objects().get(
-                bucket=bucket,
-                object=object
-            ).execute()
-
-            md5hash = response['md5Hash']
-            self.log.info('The md5Hash of %s is %s', object, md5hash)
-            return md5hash
-
-        except errors.HttpError as ex:
-            if ex.resp['status'] == '404':
-                raise ValueError('Object Not Found')

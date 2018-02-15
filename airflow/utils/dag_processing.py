@@ -23,10 +23,10 @@ import time
 import zipfile
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict
+from datetime import datetime
 
 from airflow.dag.base_dag import BaseDag, BaseDagBag
 from airflow.exceptions import AirflowException
-from airflow.utils import timezone
 from airflow.utils.log.logging_mixin import LoggingMixin
 
 
@@ -376,7 +376,7 @@ class DagFileProcessorManager(LoggingMixin):
         being processed
         """
         if file_path in self._processors:
-            return (timezone.utcnow() - self._processors[file_path].start_time)\
+            return (datetime.utcnow() - self._processors[file_path].start_time) \
                 .total_seconds()
         return None
 
@@ -466,7 +466,7 @@ class DagFileProcessorManager(LoggingMixin):
         for file_path, processor in self._processors.items():
             if processor.done:
                 self.log.info("Processor for %s finished", file_path)
-                now = timezone.utcnow()
+                now = datetime.utcnow()
                 finished_processors[file_path] = processor
                 self._last_runtime[file_path] = (now -
                                                  processor.start_time).total_seconds()
@@ -475,12 +475,6 @@ class DagFileProcessorManager(LoggingMixin):
             else:
                 running_processors[file_path] = processor
         self._processors = running_processors
-
-        self.log.debug("%s/%s scheduler processes running",
-                       len(self._processors), self._parallelism)
-
-        self.log.debug("%s file paths queued for processing",
-                       len(self._file_path_queue))
 
         # Collect all the DAGs that were found in the processed files
         simple_dags = []
@@ -500,13 +494,13 @@ class DagFileProcessorManager(LoggingMixin):
             # If the file path is already being processed, or if a file was
             # processed recently, wait until the next batch
             file_paths_in_progress = self._processors.keys()
-            now = timezone.utcnow()
+            now = datetime.utcnow()
             file_paths_recently_processed = []
             for file_path in self._file_paths:
                 last_finish_time = self.get_last_finish_time(file_path)
                 if (last_finish_time is not None and
-                    (now - last_finish_time).total_seconds() <
-                        self._process_file_interval):
+                            (now - last_finish_time).total_seconds() <
+                            self._process_file_interval):
                     file_paths_recently_processed.append(file_path)
 
             files_paths_at_run_limit = [file_path
@@ -533,7 +527,7 @@ class DagFileProcessorManager(LoggingMixin):
 
         # Start more processors if we have enough slots and files to process
         while (self._parallelism - len(self._processors) > 0 and
-               len(self._file_path_queue) > 0):
+                       len(self._file_path_queue) > 0):
             file_path = self._file_path_queue.pop(0)
             processor = self._processor_factory(file_path)
 

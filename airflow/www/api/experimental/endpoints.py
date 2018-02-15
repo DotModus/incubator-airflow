@@ -19,13 +19,13 @@ from airflow.api.common.experimental.get_task import get_task
 from airflow.api.common.experimental.get_task_instance import get_task_instance
 from airflow.exceptions import AirflowException
 from airflow.utils.log.logging_mixin import LoggingMixin
-from airflow.utils import timezone
 from airflow.www.app import csrf
 
 from flask import (
     g, Markup, Blueprint, redirect, jsonify, abort,
     request, current_app, send_file, url_for
 )
+from datetime import datetime
 
 _log = LoggingMixin().log
 
@@ -58,11 +58,12 @@ def trigger_dag(dag_id):
 
         # Convert string datetime into actual datetime
         try:
-            execution_date = timezone.parse(execution_date)
+            execution_date = datetime.strptime(execution_date,
+                                               '%Y-%m-%dT%H:%M:%S')
         except ValueError:
             error_message = (
                 'Given execution date, {}, could not be identified '
-                'as a date. Example date format: 2015-11-16T14:34:15+00:00'
+                'as a date. Example date format: 2015-11-16T14:34:15'
                 .format(execution_date))
             _log.info(error_message)
             response = jsonify({'error': error_message})
@@ -122,11 +123,12 @@ def task_instance_info(dag_id, execution_date, task_id):
 
     # Convert string datetime into actual datetime
     try:
-        execution_date = timezone.parse(execution_date)
+        execution_date = datetime.strptime(execution_date,
+                                           '%Y-%m-%dT%H:%M:%S')
     except ValueError:
         error_message = (
             'Given execution date, {}, could not be identified '
-            'as a date. Example date format: 2015-11-16T14:34:15+00:00'
+            'as a date. Example date format: 2015-11-16T14:34:15'
             .format(execution_date))
         _log.info(error_message)
         response = jsonify({'error': error_message})
@@ -160,9 +162,9 @@ def latest_dag_runs():
         if dagrun.execution_date:
             payload.append({
                 'dag_id': dagrun.dag_id,
-                'execution_date': dagrun.execution_date.isoformat(),
+                'execution_date': dagrun.execution_date.strftime("%Y-%m-%d %H:%M"),
                 'start_date': ((dagrun.start_date or '') and
-                               dagrun.start_date.isoformat()),
+                               dagrun.start_date.strftime("%Y-%m-%d %H:%M")),
                 'dag_run_url': url_for('airflow.graph', dag_id=dagrun.dag_id,
                                        execution_date=dagrun.execution_date)
             })

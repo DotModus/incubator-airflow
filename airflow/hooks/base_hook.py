@@ -23,7 +23,6 @@ import random
 from airflow import settings
 from airflow.models import Connection
 from airflow.exceptions import AirflowException
-from airflow.utils.db import provide_session
 from airflow.utils.log.logging_mixin import LoggingMixin
 
 CONN_ENV_PREFIX = 'AIRFLOW_CONN_'
@@ -42,14 +41,15 @@ class BaseHook(LoggingMixin):
 
 
     @classmethod
-    @provide_session
-    def _get_connections_from_db(cls, conn_id, session=None):
+    def _get_connections_from_db(cls, conn_id):
+        session = settings.Session()
         db = (
             session.query(Connection)
             .filter(Connection.conn_id == conn_id)
             .all()
         )
         session.expunge_all()
+        session.close()
         if not db:
             raise AirflowException(
                 "The conn_id `{0}` isn't defined".format(conn_id))

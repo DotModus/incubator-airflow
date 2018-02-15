@@ -18,27 +18,29 @@ import os
 import unittest
 import six
 
+from datetime import datetime
 from airflow.models import TaskInstance, DAG, DagRun
 from airflow.config_templates.airflow_local_settings import DEFAULT_LOGGING_CONFIG
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import PythonOperator
-from airflow.utils.timezone import datetime
+from airflow.settings import Session
 from airflow.utils.log.logging_mixin import set_context
 from airflow.utils.log.file_task_handler import FileTaskHandler
-from airflow.utils.db import create_session
 from airflow.utils.state import State
 
 DEFAULT_DATE = datetime(2016, 1, 1)
 TASK_LOGGER = 'airflow.task'
-FILE_TASK_HANDLER = 'task'
+FILE_TASK_HANDLER = 'file.task'
 
 
 class TestFileTaskLogHandler(unittest.TestCase):
-
     def cleanUp(self):
-        with create_session() as session:
-            session.query(DagRun).delete()
-            session.query(TaskInstance).delete()
+        session = Session()
+
+        session.query(DagRun).delete()
+        session.query(TaskInstance).delete()
+
+        session.commit()
 
     def setUp(self):
         super(TestFileTaskLogHandler, self).setUp()
