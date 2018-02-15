@@ -14,15 +14,16 @@
 
 from __future__ import print_function
 
+import datetime
+
 from airflow import DAG, configuration, operators
 from airflow.utils.tests import skipUnlessImported
-from airflow.utils import timezone
 
 configuration.load_test_config()
 
 import unittest
 
-DEFAULT_DATE = timezone.datetime(2015, 1, 1)
+DEFAULT_DATE = datetime.datetime(2015, 1, 1)
 DEFAULT_DATE_ISO = DEFAULT_DATE.isoformat()
 DEFAULT_DATE_DS = DEFAULT_DATE_ISO[:10]
 TEST_DAG_ID = 'unit_test_dag'
@@ -105,6 +106,14 @@ class MySqlTest(unittest.TestCase):
             dag=self.dag)
         t.run(start_date=DEFAULT_DATE, end_date=DEFAULT_DATE, ignore_ti_state=True)
 
+    def test_sql_sensor(self):
+        t = operators.sensors.SqlSensor(
+            task_id='sql_sensor_check',
+            conn_id='mysql_default',
+            sql="SELECT count(1) FROM INFORMATION_SCHEMA.TABLES",
+            dag=self.dag)
+        t.run(start_date=DEFAULT_DATE, end_date=DEFAULT_DATE, ignore_ti_state=True)
+
     def test_overwrite_schema(self):
         """
         Verifies option to overwrite connection schema
@@ -183,6 +192,14 @@ class PostgresTest(unittest.TestCase):
             dag=self.dag)
         t.run(start_date=DEFAULT_DATE, end_date=DEFAULT_DATE, ignore_ti_state=True)
 
+    def test_sql_sensor(self):
+        t = operators.sensors.SqlSensor(
+            task_id='sql_sensor_check',
+            conn_id='postgres_default',
+            sql="SELECT count(1) FROM INFORMATION_SCHEMA.TABLES",
+            dag=self.dag)
+        t.run(start_date=DEFAULT_DATE, end_date=DEFAULT_DATE, ignore_ti_state=True)
+
     def test_vacuum(self):
         """
         Verifies the VACUUM operation runs well with the PostgresOperator
@@ -234,7 +251,7 @@ class TransferTests(unittest.TestCase):
     def test_clear(self):
         self.dag.clear(
             start_date=DEFAULT_DATE,
-            end_date=timezone.utcnow())
+            end_date=datetime.datetime.now())
 
     def test_mysql_to_hive(self):
         # import airflow.operators

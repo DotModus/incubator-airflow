@@ -83,7 +83,6 @@ Content
     scheduler
     plugins
     security
-    timezone
     api
     integration
     faq

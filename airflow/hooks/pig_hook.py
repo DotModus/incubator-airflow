@@ -67,8 +67,7 @@ class PigCliHook(BaseHook):
                     pig_cmd,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,
-                    cwd=tmp_dir,
-                    close_fds=True)
+                    cwd=tmp_dir)
                 self.sp = sp
                 stdout = ''
                 for line in iter(sp.stdout.readline, ''):

@@ -48,8 +48,6 @@ class State(object):
         UPSTREAM_FAILED,
         UP_FOR_RETRY,
         QUEUED,
-        NONE,
-        SCHEDULED,
     )
 
     dag_states = (
@@ -68,8 +66,7 @@ class State(object):
         UPSTREAM_FAILED: 'orange',
         SKIPPED: 'pink',
         REMOVED: 'lightgrey',
-        SCHEDULED: 'tan',
-        NONE: 'lightblue',
+        SCHEDULED: 'white',
     }
 
     @classmethod

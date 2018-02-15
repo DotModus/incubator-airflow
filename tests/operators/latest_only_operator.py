@@ -23,14 +23,13 @@ from airflow.jobs import BackfillJob
 from airflow.models import TaskInstance
 from airflow.operators.latest_only_operator import LatestOnlyOperator
 from airflow.operators.dummy_operator import DummyOperator
-from airflow.utils import timezone
 from airflow.utils.state import State
 from freezegun import freeze_time
 
-DEFAULT_DATE = timezone.datetime(2016, 1, 1)
-END_DATE = timezone.datetime(2016, 1, 2)
+DEFAULT_DATE = datetime.datetime(2016, 1, 1)
+END_DATE = datetime.datetime(2016, 1, 2)
 INTERVAL = datetime.timedelta(hours=12)
-FROZEN_NOW = timezone.datetime(2016, 1, 2, 12, 1, 1)
+FROZEN_NOW = datetime.datetime(2016, 1, 2, 12, 1, 1)
 
 
 def get_task_instances(task_id):
@@ -86,27 +85,27 @@ class LatestOnlyOperatorTest(unittest.TestCase):
         exec_date_to_latest_state = {
             ti.execution_date: ti.state for ti in latest_instances}
         self.assertEqual({
-            timezone.datetime(2016, 1, 1): 'success',
-            timezone.datetime(2016, 1, 1, 12): 'success',
-            timezone.datetime(2016, 1, 2): 'success', },
+            datetime.datetime(2016, 1, 1): 'success',
+            datetime.datetime(2016, 1, 1, 12): 'success',
+            datetime.datetime(2016, 1, 2): 'success', },
             exec_date_to_latest_state)
 
         downstream_instances = get_task_instances('downstream')
         exec_date_to_downstream_state = {
             ti.execution_date: ti.state for ti in downstream_instances}
         self.assertEqual({
-            timezone.datetime(2016, 1, 1): 'skipped',
-            timezone.datetime(2016, 1, 1, 12): 'skipped',
-            timezone.datetime(2016, 1, 2): 'success',},
+            datetime.datetime(2016, 1, 1): 'skipped',
+            datetime.datetime(2016, 1, 1, 12): 'skipped',
+            datetime.datetime(2016, 1, 2): 'success',},
             exec_date_to_downstream_state)
 
         downstream_instances = get_task_instances('downstream_2')
         exec_date_to_downstream_state = {
             ti.execution_date: ti.state for ti in downstream_instances}
         self.assertEqual({
-            timezone.datetime(2016, 1, 1): 'skipped',
-            timezone.datetime(2016, 1, 1, 12): 'skipped',
-            timezone.datetime(2016, 1, 2): 'success',},
+            datetime.datetime(2016, 1, 1): 'skipped',
+            datetime.datetime(2016, 1, 1, 12): 'skipped',
+            datetime.datetime(2016, 1, 2): 'success',},
             exec_date_to_downstream_state)
 
     def test_skipping_dagrun(self):
@@ -125,21 +124,21 @@ class LatestOnlyOperatorTest(unittest.TestCase):
 
         dr1 = self.dag.create_dagrun(
             run_id="manual__1",
-            start_date=timezone.utcnow(),
+            start_date=datetime.datetime.now(),
             execution_date=DEFAULT_DATE,
             state=State.RUNNING
         )
 
         dr2 = self.dag.create_dagrun(
             run_id="manual__2",
-            start_date=timezone.utcnow(),
-            execution_date=timezone.datetime(2016, 1, 1, 12),
+            start_date=datetime.datetime.now(),
+            execution_date=datetime.datetime(2016, 1, 1, 12),
             state=State.RUNNING
         )
 
         dr2 = self.dag.create_dagrun(
             run_id="manual__3",
-            start_date=timezone.utcnow(),
+            start_date=datetime.datetime.now(),
             execution_date=END_DATE,
             state=State.RUNNING
         )
@@ -152,25 +151,25 @@ class LatestOnlyOperatorTest(unittest.TestCase):
         exec_date_to_latest_state = {
             ti.execution_date: ti.state for ti in latest_instances}
         self.assertEqual({
-            timezone.datetime(2016, 1, 1): 'success',
-            timezone.datetime(2016, 1, 1, 12): 'success',
-            timezone.datetime(2016, 1, 2): 'success', },
+            datetime.datetime(2016, 1, 1): 'success',
+            datetime.datetime(2016, 1, 1, 12): 'success',
+            datetime.datetime(2016, 1, 2): 'success', },
             exec_date_to_latest_state)
 
         downstream_instances = get_task_instances('downstream')
         exec_date_to_downstream_state = {
             ti.execution_date: ti.state for ti in downstream_instances}
         self.assertEqual({
-            timezone.datetime(2016, 1, 1): 'skipped',
-            timezone.datetime(2016, 1, 1, 12): 'skipped',
-            timezone.datetime(2016, 1, 2): 'success',},
+            datetime.datetime(2016, 1, 1): 'skipped',
+            datetime.datetime(2016, 1, 1, 12): 'skipped',
+            datetime.datetime(2016, 1, 2): 'success',},
             exec_date_to_downstream_state)
 
         downstream_instances = get_task_instances('downstream_2')
         exec_date_to_downstream_state = {
             ti.execution_date: ti.state for ti in downstream_instances}
         self.assertEqual({
-            timezone.datetime(2016, 1, 1): 'skipped',
-            timezone.datetime(2016, 1, 1, 12): 'skipped',
-            timezone.datetime(2016, 1, 2): 'success',},
+            datetime.datetime(2016, 1, 1): 'skipped',
+            datetime.datetime(2016, 1, 1, 12): 'skipped',
+            datetime.datetime(2016, 1, 2): 'success',},
             exec_date_to_downstream_state)

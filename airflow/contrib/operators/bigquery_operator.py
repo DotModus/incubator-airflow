@@ -71,7 +71,6 @@ class BigQueryOperator(BaseOperator):
                  maximum_billing_tier=None,
                  create_disposition='CREATE_IF_NEEDED',
                  query_params=None,
-                 job_xcom_id=None,
                  *args,
                  **kwargs):
         super(BigQueryOperator, self).__init__(*args, **kwargs)
@@ -86,7 +85,6 @@ class BigQueryOperator(BaseOperator):
         self.use_legacy_sql = use_legacy_sql
         self.maximum_billing_tier = maximum_billing_tier
         self.query_params = query_params
-        self.job_xcom_id = job_xcom_id
 
     def execute(self, context):
         self.log.info('Executing: %s', self.bql)
@@ -94,10 +92,7 @@ class BigQueryOperator(BaseOperator):
                             delegate_to=self.delegate_to)
         conn = hook.get_conn()
         cursor = conn.cursor()
-        job_id = cursor.run_query(self.bql, self.destination_dataset_table, self.write_disposition,
+        cursor.run_query(self.bql, self.destination_dataset_table, self.write_disposition,
                          self.allow_large_results, self.udf_config,
                          self.use_legacy_sql, self.maximum_billing_tier,
                          self.create_disposition, self.query_params)
-
-        if self.job_xcom_id:
-            context['task_instance'].xcom_push(self.job_xcom_id, job_id)

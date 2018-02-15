@@ -66,9 +66,7 @@ class DatastoreHook(GoogleCloudBaseHook):
     def commit(self, body):
         """
         Commit a transaction, optionally creating, deleting or modifying some entities.
-
-        .. seealso::
-            https://cloud.google.com/datastore/docs/reference/rest/v1/projects/commit
+        see https://cloud.google.com/datastore/docs/reference/rest/v1/projects/commit
 
         :param body: the body of the commit request
         :return: the response body of the commit request
@@ -79,10 +77,7 @@ class DatastoreHook(GoogleCloudBaseHook):
     def lookup(self, keys, read_consistency=None, transaction=None):
         """
         Lookup some entities by key
-
-        .. seealso::
-            https://cloud.google.com/datastore/docs/reference/rest/v1/projects/lookup
-
+        see https://cloud.google.com/datastore/docs/reference/rest/v1/projects/lookup
         :param keys: the keys to lookup
         :param read_consistency: the read consistency to use. default, strong or eventual.
                 Cannot be used with a transaction.
@@ -99,10 +94,7 @@ class DatastoreHook(GoogleCloudBaseHook):
     def rollback(self, transaction):
         """
         Roll back a transaction
-
-        .. seealso::
-            https://cloud.google.com/datastore/docs/reference/rest/v1/projects/rollback
-
+        see https://cloud.google.com/datastore/docs/reference/rest/v1/projects/rollback
         :param transaction: the transaction to roll back
         """
         self.connection.projects().rollback(projectId=self.project_id, body={'transaction': transaction})\
@@ -111,10 +103,7 @@ class DatastoreHook(GoogleCloudBaseHook):
     def run_query(self, body):
         """
         Run a query for entities.
-
-        .. seealso::
-            https://cloud.google.com/datastore/docs/reference/rest/v1/projects/runQuery
-
+        see https://cloud.google.com/datastore/docs/reference/rest/v1/projects/runQuery
         :param body: the body of the query request
         :return: the batch of query results.
         """

@@ -202,8 +202,7 @@ class SSHHook(BaseHook, LoggingMixin):
 
         proc = subprocess.Popen(ssh_cmd,
                                 stdin=subprocess.PIPE,
-                                stdout=subprocess.PIPE,
-                                close_fds=True)
+                                stdout=subprocess.PIPE)
         ready = proc.stdout.read(5)
         assert ready == b"ready", \
             "Did not get 'ready' from remote, got '{0}' instead".format(ready)

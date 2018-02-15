@@ -13,9 +13,8 @@
 # limitations under the License.
 #
 
-import unittest
-
 import datetime
+import unittest
 
 from airflow import DAG, configuration
 from airflow.contrib.sensors.wasb_sensor import WasbBlobSensor
@@ -31,6 +30,7 @@ except ImportError:
 
 
 class TestWasbBlobSensor(unittest.TestCase):
+
     _config = {
         'container_name': 'container',
         'blob_name': 'blob',
@@ -83,6 +83,7 @@ class TestWasbBlobSensor(unittest.TestCase):
 
 
 class TestWasbPrefixSensor(unittest.TestCase):
+
     _config = {
         'container_name': 'container',
         'prefix': 'prefix',
@@ -132,7 +133,6 @@ class TestWasbPrefixSensor(unittest.TestCase):
         mock_instance.check_for_prefix.assert_called_once_with(
             'container', 'prefix', timeout=2
         )
-
 
 if __name__ == '__main__':
     unittest.main()

@@ -21,19 +21,16 @@ from cgi import escape
 from io import BytesIO as IO
 import functools
 import gzip
+import dateutil.parser as dateparser
 import json
 import time
 
 from flask import after_this_request, request, Response
-from flask_admin.contrib.sqla.filters import FilterConverter
-from flask_admin.model import filters
 from flask_login import current_user
 import wtforms
 from wtforms.compat import text_type
 
 from airflow import configuration, models, settings
-from airflow.utils.db import create_session
-from airflow.utils import timezone
 from airflow.utils.json import AirflowJsonEncoder
 
 AUTHENTICATE = configuration.getboolean('webserver', 'AUTHENTICATE')
@@ -47,7 +44,6 @@ DEFAULT_SENSITIVE_VARIABLE_FIELDS = (
     'apikey',
     'access_token',
 )
-
 
 def should_hide_value_for_key(key_name):
     return any(s in key_name.lower() for s in DEFAULT_SENSITIVE_VARIABLE_FIELDS) \
@@ -241,6 +237,8 @@ def action_logging(f):
     '''
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
+        session = settings.Session()
+
         if current_user and hasattr(current_user, 'username'):
             user = current_user.username
         else:
@@ -255,11 +253,11 @@ def action_logging(f):
             dag_id=request.args.get('dag_id'))
 
         if 'execution_date' in request.args:
-            log.execution_date = timezone.parse(request.args.get('execution_date'))
+            log.execution_date = dateparser.parse(
+                request.args.get('execution_date'))
 
-        with create_session() as session:
-            session.add(log)
-            session.commit()
+        session.add(log)
+        session.commit()
 
         return f(*args, **kwargs)
 
@@ -387,9 +385,3 @@ class AceEditorWidget(wtforms.widgets.TextArea):
             form_name=field.id,
         )
         return wtforms.widgets.core.HTMLString(html)
-
-
-class UtcFilterConverter(FilterConverter):
-    @filters.convert('utcdatetime')
-    def conv_utcdatetime(self, column, name, **kwargs):
-        return self.conv_datetime(column, name, **kwargs)

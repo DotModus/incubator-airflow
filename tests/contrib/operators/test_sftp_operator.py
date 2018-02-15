@@ -15,6 +15,7 @@
 import os
 import unittest
 from base64 import b64encode
+from datetime import datetime
 
 from airflow import configuration
 from airflow import models
@@ -22,8 +23,6 @@ from airflow.contrib.operators.sftp_operator import SFTPOperator, SFTPOperation
 from airflow.contrib.operators.ssh_operator import SSHOperator
 from airflow.models import DAG, TaskInstance
 from airflow.settings import Session
-from airflow.utils import timezone
-from airflow.utils.timezone import datetime
 
 TEST_DAG_ID = 'unit_tests'
 DEFAULT_DATE = datetime(2017, 1, 1)
@@ -81,7 +80,7 @@ class SFTPOperatorTest(unittest.TestCase):
                 dag=self.dag
         )
         self.assertIsNotNone(put_test_task)
-        ti2 = TaskInstance(task=put_test_task, execution_date=timezone.utcnow())
+        ti2 = TaskInstance(task=put_test_task, execution_date=datetime.now())
         ti2.run()
 
         # check the remote file content
@@ -93,7 +92,7 @@ class SFTPOperatorTest(unittest.TestCase):
                 dag=self.dag
         )
         self.assertIsNotNone(check_file_task)
-        ti3 = TaskInstance(task=check_file_task, execution_date=timezone.utcnow())
+        ti3 = TaskInstance(task=check_file_task, execution_date=datetime.now())
         ti3.run()
         self.assertEqual(
                 ti3.xcom_pull(task_ids='test_check_file', key='return_value').strip(),
@@ -118,7 +117,7 @@ class SFTPOperatorTest(unittest.TestCase):
                 dag=self.dag
         )
         self.assertIsNotNone(put_test_task)
-        ti2 = TaskInstance(task=put_test_task, execution_date=timezone.utcnow())
+        ti2 = TaskInstance(task=put_test_task, execution_date=datetime.now())
         ti2.run()
 
         # check the remote file content
@@ -130,7 +129,7 @@ class SFTPOperatorTest(unittest.TestCase):
                 dag=self.dag
         )
         self.assertIsNotNone(check_file_task)
-        ti3 = TaskInstance(task=check_file_task, execution_date=timezone.utcnow())
+        ti3 = TaskInstance(task=check_file_task, execution_date=datetime.now())
         ti3.run()
         self.assertEqual(
                 ti3.xcom_pull(task_ids='test_check_file', key='return_value').strip(),
@@ -153,7 +152,7 @@ class SFTPOperatorTest(unittest.TestCase):
                 dag=self.dag
         )
         self.assertIsNotNone(create_file_task)
-        ti1 = TaskInstance(task=create_file_task, execution_date=timezone.utcnow())
+        ti1 = TaskInstance(task=create_file_task, execution_date=datetime.now())
         ti1.run()
 
         # get remote file to local
@@ -166,7 +165,7 @@ class SFTPOperatorTest(unittest.TestCase):
                 dag=self.dag
         )
         self.assertIsNotNone(get_test_task)
-        ti2 = TaskInstance(task=get_test_task, execution_date=timezone.utcnow())
+        ti2 = TaskInstance(task=get_test_task, execution_date=datetime.now())
         ti2.run()
 
         # test the received content
@@ -191,7 +190,7 @@ class SFTPOperatorTest(unittest.TestCase):
                 dag=self.dag
         )
         self.assertIsNotNone(create_file_task)
-        ti1 = TaskInstance(task=create_file_task, execution_date=timezone.utcnow())
+        ti1 = TaskInstance(task=create_file_task, execution_date=datetime.now())
         ti1.run()
 
         # get remote file to local
@@ -204,7 +203,7 @@ class SFTPOperatorTest(unittest.TestCase):
                 dag=self.dag
         )
         self.assertIsNotNone(get_test_task)
-        ti2 = TaskInstance(task=get_test_task, execution_date=timezone.utcnow())
+        ti2 = TaskInstance(task=get_test_task, execution_date=datetime.now())
         ti2.run()
 
         # test the received content
@@ -228,7 +227,7 @@ class SFTPOperatorTest(unittest.TestCase):
                 dag=self.dag
         )
         self.assertIsNotNone(remove_file_task)
-        ti3 = TaskInstance(task=remove_file_task, execution_date=timezone.utcnow())
+        ti3 = TaskInstance(task=remove_file_task, execution_date=datetime.now())
         ti3.run()
 
     def tearDown(self):

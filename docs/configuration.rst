@@ -35,7 +35,7 @@ You can also derive the connection string at run time by appending ``_cmd`` to t
     [core]
     sql_alchemy_conn_cmd = bash_command_to_run
 
--But only three such configuration elements namely sql_alchemy_conn, broker_url and result_backend can be fetched as a command. The idea behind this is to not store passwords on boxes in plain text files. The order of precedence is as follows -
+But only three such configuration elements namely sql_alchemy_conn, broker_url and celery_result_backend can be fetched as a command. The idea behind this is to not store passwords on boxes in plain text files. The order of precedence is as follows -
 
 1. environment variable
 2. configuration in airflow.cfg
@@ -50,10 +50,6 @@ setting up a real database backend and switching to the LocalExecutor.
 As Airflow was built to interact with its metadata using the great SqlAlchemy
 library, you should be able to use any database backend supported as a
 SqlAlchemy backend. We recommend using **MySQL** or **Postgres**.
-
-.. note:: We rely on more strict ANSI SQL settings for MySQL in order to have 
-   sane defaults. Make sure to have specified `explicit_defaults_for_timestamp=1` 
-   in your my.cnf under `[mysqld]`
 
 .. note:: If you decide to use **Postgres**, we recommend using the ``psycopg2``
    driver and specifying it in your SqlAlchemy connection string.
@@ -159,11 +155,6 @@ Note that you can also run "Celery Flower", a web UI built on top of Celery,
 to monitor your workers. You can use the shortcut command ``airflow flower``
 to start a Flower web server.
 
-Some caveats:
-
-- Make sure to use a database backed result backend
-- Make sure to set a visibility timeout in [celery_broker_transport_options] that exceeds the ETA of your longest running task
-- Tasks can and consume resources, make sure your worker as enough resources to run `worker_concurrency` tasks
 
 Scaling Out with Dask
 '''''''''''''''''''''

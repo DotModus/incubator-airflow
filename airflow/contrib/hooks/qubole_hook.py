@@ -202,6 +202,9 @@ class QuboleHook(BaseHook, LoggingMixin):
         args.append("--tags={0}".format(','.join(filter(None,tags))))
 
         if inplace_args is not None:
-            args += inplace_args.split(' ')
+            if cmd_type == 'hadoopcmd':
+                args += inplace_args.split(' ', 1)
+            else:
+                args += inplace_args.split(' ')
 
         return args

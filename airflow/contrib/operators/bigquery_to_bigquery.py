@@ -19,11 +19,11 @@ from airflow.utils.decorators import apply_defaults
 
 class BigQueryToBigQueryOperator(BaseOperator):
     """
-    Copies data from one BigQuery table to another.
+    Copies data from one BigQuery table to another. See here:
 
-    .. seealso::
-        For more details about these parameters:
-        https://cloud.google.com/bigquery/docs/reference/v2/jobs#configuration.copy
+    https://cloud.google.com/bigquery/docs/reference/v2/jobs#configuration.copy
+
+    For more details about these parameters.
 
     :param source_project_dataset_tables: One or more
         dotted (project:|project.)<dataset>.<table> BigQuery tables to use as the
