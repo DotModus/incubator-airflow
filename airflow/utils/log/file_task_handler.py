@@ -97,11 +97,9 @@ class FileTaskHandler(logging.Handler):
         if os.path.exists(location):
             try:
                 with open(location) as f:
-                    log += "*** Reading local file: {}\n".format(location)
-                    log += "".join(f.readlines())
+                    log += "*** Reading local log.\n" + "".join(f.readlines())
             except Exception as e:
-                log = "*** Failed to load local log file: {}\n".format(location)
-                log += "*** {}\n".format(str(e))
+                log = "*** Failed to load local log file: {}. {}\n".format(location, str(e))
         else:
             url = os.path.join(
                 "http://{ti.hostname}:{worker_log_server_port}/log", log_relative_path
@@ -109,8 +107,8 @@ class FileTaskHandler(logging.Handler):
                 ti=ti,
                 worker_log_server_port=conf.get('celery', 'WORKER_LOG_SERVER_PORT')
             )
-            log += "*** Log file does not exist: {}\n".format(location)
-            log += "*** Fetching from: {}\n".format(url)
+            log += "*** Log file isn't local.\n"
+            log += "*** Fetching here: {url}\n".format(**locals())
             try:
                 timeout = None  # No timeout
                 try:
@@ -189,7 +187,7 @@ class FileTaskHandler(logging.Handler):
         if not os.path.exists(directory):
             # Create the directory as globally writable using custom mkdirs
             # as os.makedirs doesn't set mode properly.
-            mkdirs(directory, 0o777)
+            mkdirs(directory, 0o775)
 
         if not os.path.exists(full_path):
             open(full_path, "a").close()

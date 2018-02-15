@@ -17,13 +17,11 @@ import six
 
 from flask import Flask
 from flask_admin import Admin, base
-from flask_caching import Cache
+from flask_cache import Cache
 from flask_wtf.csrf import CSRFProtect
-from six.moves.urllib.parse import urlparse
-from werkzeug.wsgi import DispatcherMiddleware
+csrf = CSRFProtect()
 
 import airflow
-from airflow import configuration as conf
 from airflow import models, LoggingMixin
 from airflow.settings import Session
 
@@ -32,8 +30,6 @@ from airflow.logging_config import configure_logging
 from airflow import jobs
 from airflow import settings
 from airflow import configuration
-
-csrf = CSRFProtect()
 
 
 def create_app(config=None, testing=False):
@@ -72,10 +68,9 @@ def create_app(config=None, testing=False):
         vs = views
         av(vs.Airflow(name='DAGs', category='DAGs'))
 
-        if not conf.getboolean('core', 'secure_mode'):
-            av(vs.QueryView(name='Ad Hoc Query', category="Data Profiling"))
-            av(vs.ChartModelView(
-                models.Chart, Session, name="Charts", category="Data Profiling"))
+        av(vs.QueryView(name='Ad Hoc Query', category="Data Profiling"))
+        av(vs.ChartModelView(
+            models.Chart, Session, name="Charts", category="Data Profiling"))
         av(vs.KnownEventView(
             models.KnownEvent,
             Session, name="Known Events", category="Data Profiling"))
@@ -157,22 +152,11 @@ def create_app(config=None, testing=False):
 
         return app
 
-
 app = None
 
 
-def root_app(env, resp):
-    resp(b'404 Not Found', [(b'Content-Type', b'text/plain')])
-    return [b'Apache Airflow is not at this location']
-
-
-def cached_app(config=None, testing=False):
+def cached_app(config=None):
     global app
     if not app:
-        base_url = urlparse(configuration.get('webserver', 'base_url'))[2]
-        if not base_url or base_url == '/':
-            base_url = ""
-
-        app = create_app(config, testing)
-        app = DispatcherMiddleware(root_app, {base_url: app})
+        app = create_app(config)
     return app

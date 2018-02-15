@@ -21,9 +21,11 @@ class BigQueryToCloudStorageOperator(BaseOperator):
     """
     Transfers a BigQuery table to a Google Cloud Storage bucket.
 
-    .. seealso::
-        For more details about these parameters:
-        https://cloud.google.com/bigquery/docs/reference/v2/jobs
+    See here:
+
+    https://cloud.google.com/bigquery/docs/reference/v2/jobs
+
+    For more details about these parameters.
 
     :param source_project_dataset_table: The dotted
         (<project>.|<project>:)<dataset>.<table> BigQuery table to use as the source
